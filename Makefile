@@ -1,9 +1,11 @@
-.PHONY: build clean
+.PHONY: build build-windows clean
 
 build:
-	go generate ./...
-	go build -ldflags="-H windowsgui" -o bin/bhop.exe ./cmd/
-	mt.exe -manifest admin.manifest -outputresource:bin/bhop.exe;#1
+	go build -o bin/yaga-bhop ./cmd/main.go
+
+build-windows:
+	GOOS=windows GOARCH=amd64 go build -o bin/yaga-bhop.exe ./cmd/main.go
+	mt.exe -manifest cmd/admin.manifest -outputresource:bin/yaga-bhop.exe;#1
 
 clean:
 	rm -rf bin/
