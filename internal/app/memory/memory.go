@@ -38,6 +38,9 @@ func (m *MemoryReader) WriteInt(address uintptr, value int32) error {
     if err != nil {
         return fmt.Errorf("failed to write memory: %v", err)
     }
+    if written == 0 {
+        return fmt.Errorf("no bytes written to memory")
+    }
     return nil
 }
 

@@ -168,19 +168,17 @@ func (b *Bhop) Start() {
     jump := false
     for {
         ret, _, _ := getAsyncKeyState.Call(uintptr(VK_SPACE))
-        if ret&0x8000 != 0 {
+        if ret&0x8000 != 0 { // Space is pressed
             if !jump {
                 time.Sleep(10 * time.Millisecond)
-                if err := b.MemoryReader.WriteInt(b.ForceJumpAddress, 6); err != nil {
+                if err := b.MemoryReader.WriteInt(b.ForceJumpAddress, 65537); err != nil {
                     b.Logger.Error(fmt.Sprintf("Failed to write memory: %v", err))
                     continue
                 }
                 jump = true
-            }
-        } else {
-            if jump {
+            } else {
                 time.Sleep(10 * time.Millisecond)
-                if err := b.MemoryReader.WriteInt(b.ForceJumpAddress, 4); err != nil {
+                if err := b.MemoryReader.WriteInt(b.ForceJumpAddress, 256); err != nil {
                     b.Logger.Error(fmt.Sprintf("Failed to write memory: %v", err))
                     continue
                 }
