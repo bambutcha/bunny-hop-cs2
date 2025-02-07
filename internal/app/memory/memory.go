@@ -7,57 +7,56 @@ import (
 	"golang.org/x/sys/windows"
 )
 
-const (
-	PROCESS_ALL_ACCESS = 0x1F0FFF
-)
-
 type MemoryReader struct {
-	ProcessID uint32
+	processHandle windows.Handle
 }
 
 func NewMemoryReader(processID uint32) *MemoryReader {
+	handle, err := windows.OpenProcess(
+		windows.PROCESS_VM_READ|windows.PROCESS_VM_WRITE|windows.PROCESS_VM_OPERATION,
+		false,
+		processID,
+	)
+	if err != nil {
+		return nil
+	}
 	return &MemoryReader{
-		ProcessID: processID,
+		processHandle: handle,
 	}
 }
 
-func (M *MemoryReader) ReadMemory(address uint32, size uint32) ([]byte, error) {
-	processHandle, err := windows.OpenProcess(PROCESS_ALL_ACCESS, false, M.ProcessID)
-	if err != nil {
-		return nil, fmt.Errorf("Failed to open process: %v", err)
+func (m *MemoryReader) Close() {
+	if m.processHandle != 0 {
+		windows.CloseHandle(m.processHandle)
 	}
-	defer windows.CloseHandle(processHandle)
-
-	buffer := make([]byte, size)
-	var bytesRead uintptr
-	err = windows.ReadProcessMemory(processHandle, 
-		uintptr(address),
-		(*byte)(unsafe.Pointer(&buffer[0])),
-		uintptr(size),
-		&bytesRead)
-	if err != nil {
-		return nil, fmt.Errorf("Failed to read memory: %v", err)
-	}
-
-	return buffer, nil
 }
 
-func (M *MemoryReader) WriteMemory(address uint32, data []byte) error {
-	processHandle, err := windows.OpenProcess(PROCESS_ALL_ACCESS, false, M.ProcessID)
-	if err != nil {
-		return fmt.Errorf("Failed to open process: %v", err)
-	}
-	defer windows.CloseHandle(processHandle)
-	
-	var bytesWritten uintptr
-	err = windows.WriteProcessMemory(processHandle,
+func (m *MemoryReader) ReadMemory(address uint32, buffer []byte) error {
+	var read uintptr
+	err := windows.ReadProcessMemory(
+		m.processHandle,
 		uintptr(address),
-		(*byte)(unsafe.Pointer(&data[0])),
-		uintptr(len(data)),
-		&bytesWritten)
+		&buffer[0],
+		uintptr(len(buffer)),
+		&read,
+	)
+	if err != nil {
+		return fmt.Errorf("Failed to read memory: %v", err)
+	}
+	return nil
+}
+
+func (m *MemoryReader) WriteMemory(address uint32, buffer []byte) error {
+	var written uintptr
+	err := windows.WriteProcessMemory(
+		m.processHandle,
+		uintptr(address),
+		&buffer[0],
+		uintptr(len(buffer)),
+		&written,
+	)
 	if err != nil {
 		return fmt.Errorf("Failed to write memory: %v", err)
 	}
-
 	return nil
 }

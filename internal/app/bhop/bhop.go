@@ -64,7 +64,6 @@ func (b *Bhop) Initialize() error {
 		return fmt.Errorf("Failed to find cs2.exe process: %v", err)
 	}
 	b.ProcessID = pid
-
 	b.MemoryReader = memory.NewMemoryReader(b.ProcessID)
 
 	b.Logger.Info("Getting client.dll base address...")
@@ -79,10 +78,13 @@ func (b *Bhop) Initialize() error {
 	if err != nil {
 		return fmt.Errorf("Failed to fetch offsets: %v", err)
 	}
+
+	// Важно: offset это смещение, которое нужно добавить к базовому адресу
 	b.ForceJumpAddress = b.ClientBase + offset
+	b.Logger.Info(fmt.Sprintf("Client base: 0x%X, Offset: 0x%X, Final address: 0x%X", 
+		b.ClientBase, offset, b.ForceJumpAddress))
 
 	b.Logger.Info("Bhop initialized successfully!")
-
 	return nil
 }
 
@@ -184,16 +186,39 @@ func (b *Bhop) Start() {
 	jump := false
 	for {
 		ret, _, _ := getAsyncKeyState.Call(uintptr(VK_SPACE))
-		if ret&0x8000 != 0 {
+		if ret&0x8000 != 0 { // Клавиша нажата
 			if !jump {
 				time.Sleep(10 * time.Millisecond)
+				value := int32(5)  // Изменено значение
+				if err := b.MemoryReader.WriteMemory(uint32(b.ForceJumpAddress), (*[4]byte)(unsafe.Pointer(&value))[:]); err != nil {
+					b.Logger.Error(fmt.Sprintf("Failed to write memory: %v", err))
+					continue
+				}
+				jump = true
+			}
+		} else { // Клавиша отпущена
+			if jump {
+				time.Sleep(10 * time.Millisecond)
+				value := int32(4)  // Изменено значение
+				if err := b.MemoryReader.WriteMemory(uint32(b.ForceJumpAddress), (*[4]byte)(unsafe.Pointer(&value))[:]); err != nil {
+					b.Logger.Error(fmt.Sprintf("Failed to write memory: %v", err))
+					continue
+				}
+				jump = false
+			}
+		}
+		time.Sleep(1 * time.Millisecond)
+	}
+}
 				value := int32(65537)
 				if err := b.MemoryReader.WriteMemory(uint32(b.ForceJumpAddress), (*[4]byte)(unsafe.Pointer(&value))[:]); err != nil {
 					b.Logger.Error(fmt.Sprintf("Failed to write memory: %v", err))
 					continue
 				}
 				jump = true
-			} else {
+			}
+		} else { // Клавиша отпущена
+			if jump {
 				time.Sleep(10 * time.Millisecond)
 				value := int32(256)
 				if err := b.MemoryReader.WriteMemory(uint32(b.ForceJumpAddress), (*[4]byte)(unsafe.Pointer(&value))[:]); err != nil {
