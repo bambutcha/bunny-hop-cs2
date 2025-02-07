@@ -2,7 +2,6 @@ package memory
 
 import (
 	"fmt"
-	"unsafe"
 
 	"golang.org/x/sys/windows"
 )
