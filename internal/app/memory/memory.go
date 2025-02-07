@@ -25,8 +25,13 @@ func (M *MemoryReader) ReadMemory(address uint32, size uint32) ([]byte, error) {
 	defer windows.CloseHandle(processHandle)
 
 	buffer := make([]byte, size)
-	var bytesRead uint32
-	if err := windows.ReadProcessMemory(processHandle, address, uintptr(unsafe.Pointer(&buffer[0])), size, &bytesRead); err != nil {
+	var bytesRead uintptr
+	err = windows.ReadProcessMemory(processHandle, 
+		uintptr(address),
+		(*byte)(unsafe.Pointer(&buffer[0])),
+		uintptr(size),
+		&bytesRead)
+	if err != nil {
 		return nil, fmt.Errorf("Failed to read memory: %v", err)
 	}
 
@@ -40,8 +45,13 @@ func (M *MemoryReader) WriteMemory(address uint32, data []byte) error {
 	}
 	defer windows.CloseHandle(processHandle)
 	
-	var bytesWritten uint32
-	if err := windows.WriteProcessMemory(processHandle, address, uintptr(unsafe.Pointer(&data[0])), uint32(len(data)), &bytesWritten); err != nil {
+	var bytesWritten uintptr
+	err = windows.WriteProcessMemory(processHandle,
+		uintptr(address),
+		(*byte)(unsafe.Pointer(&data[0])),
+		uintptr(len(data)),
+		&bytesWritten)
+	if err != nil {
 		return fmt.Errorf("Failed to write memory: %v", err)
 	}
 
