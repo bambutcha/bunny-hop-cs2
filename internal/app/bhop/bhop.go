@@ -210,24 +210,3 @@ func (b *Bhop) Start() {
 		time.Sleep(1 * time.Millisecond)
 	}
 }
-				value := int32(65537)
-				if err := b.MemoryReader.WriteMemory(uint32(b.ForceJumpAddress), (*[4]byte)(unsafe.Pointer(&value))[:]); err != nil {
-					b.Logger.Error(fmt.Sprintf("Failed to write memory: %v", err))
-					continue
-				}
-				jump = true
-			}
-		} else { // Клавиша отпущена
-			if jump {
-				time.Sleep(10 * time.Millisecond)
-				value := int32(256)
-				if err := b.MemoryReader.WriteMemory(uint32(b.ForceJumpAddress), (*[4]byte)(unsafe.Pointer(&value))[:]); err != nil {
-					b.Logger.Error(fmt.Sprintf("Failed to write memory: %v", err))
-					continue
-				}
-				jump = false
-			}
-		}
-		time.Sleep(1 * time.Millisecond)
-	}
-}
