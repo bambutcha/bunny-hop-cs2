@@ -11,7 +11,7 @@ import (
 
 	"github.com/bambutcha/cs2-bhop/internal/app/logger"
 	"github.com/bambutcha/cs2-bhop/internal/app/memory"
-	"github.com/0xrawsec/golang-win32/win32"
+	"golang.org/x/sys/windows"
 )
 
 type Bhop struct {
@@ -60,24 +60,24 @@ func (b *Bhop) Initialize() error {
 }
 
 func (b *Bhop) FindProcessID(processName string) (uint32, error) {
-	snapshot, err := win32.CreateToolhelp32Snapshot(win32.TH32CS_SNAPPROCESS, 0)
+	snapshot, err := windows.CreateToolhelp32Snapshot(windows.TH32CS_SNAPPROCESS, 0)
 	if err != nil {
 		return 0, err
 	}
-	defer win32.CloseHandle(snapshot)
+	defer windows.CloseHandle(snapshot)
 
-	var entry win32.PROCESSENTRY32
+	var entry windows.ProcessEntry32
 	entry.Size = uint32(unsafe.Sizeof(entry))
 
-	if err := win32.Process32First(snapshot, &entry); err != nil {
+	if err := windows.Process32First(snapshot, &entry); err != nil {
 		return 0, err
 	}
 
 	for {
-		if strings.EqualFold(win32.UTF16ToString(entry.ExeFile[:]), processName) {
+		if windows.UTF16ToString(entry.ExeFile[:]), processName) {
 			return entry.ProcessID, nil
 		}
-		if err := win32.Process32Next(snapshot, &entry); err != nil {
+		if err := windows.Process32Next(snapshot, &entry); err != nil {
 			break
 		}
 	}
@@ -86,24 +86,24 @@ func (b *Bhop) FindProcessID(processName string) (uint32, error) {
 }
 
 func (b *Bhop) GetModuleBaseAddress(moduleName string) (uintptr, error) {
-	snapshot, err := win32.CreateToolhelp32Snapshot(win32.TH32CS_SNAPMODULE, b.ProcessID)
+	snapshot, err := windows.CreateToolhelp32Snapshot(windows.TH32CS_SNAPMODULE, b.ProcessID)
 	if err != nil {
 		return 0, err
 	}
-	defer win32.CloseHandle(snapshot)
+	defer windows.CloseHandle(snapshot)
 
-	var entry win32.MODULEENTRY32
+	var entry windows.MODULEENTRY32
 	entry.Size = uint32(unsafe.Sizeof(entry))
 
-	if err := win32.Module32First(snapshot, &entry); err != nil {
+	if err := windows.Module32First(snapshot, &entry); err != nil {
 		return 0, err
 	}
 
 	for {
-		if strings.EqualFold(win32.UTF16ToString(entry.SzModule[:]), moduleName) {
+		if strings.EqualFold(windows.UTF16ToString(entry.SzModule[:]), moduleName) {
 			return uintptr(entry.ModBaseAddr), nil
 		}
-		if err := win32.Module32Next(snapshot, &entry); err != nil {
+		if err := windows.Module32Next(snapshot, &entry); err != nil {
 			break
 		}
 	}

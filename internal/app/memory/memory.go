@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"unsafe"
 
-	"github.com/0xrawsec/golang-win32/win32"
+	"golang.org/x/sys/windows"
 )
 
 type MemoryReader struct {
@@ -18,15 +18,15 @@ func NewMemoryReader(processID uint32) *MemoryReader {
 }
 
 func (M *MemoryReader) ReadMemory(address uint32, size uint32) ([]byte, error) {
-	processHandle, err := win32.OpenProcess(win32.PROCESS_ALL_ACCESS, false, M.ProcessID)
+	processHandle, err := windows.OpenProcess(windows.PROCESS_ALL_ACCESS, false, M.ProcessID)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to open process: %v", err)
 	}
-	defer win32.CloseHandle(processHandle)
+	defer windows.CloseHandle(processHandle)
 
 	buffer := make([]byte, size)
 	var bytesRead uint32
-	if err := win32.ReadProcessMemory(processHandle, address, uintptr(unsafe.Pointer(&buffer[0])), size, &bytesRead); err != nil {
+	if err := windows.ReadProcessMemory(processHandle, address, uintptr(unsafe.Pointer(&buffer[0])), size, &bytesRead); err != nil {
 		return nil, fmt.Errorf("Failed to read memory: %v", err)
 	}
 
@@ -34,14 +34,14 @@ func (M *MemoryReader) ReadMemory(address uint32, size uint32) ([]byte, error) {
 }
 
 func (M *MemoryReader) WriteMemory(address uint32, data []byte) error {
-	processHandle, err := win32.OpenProcess(win32.PROCESS_ALL_ACCESS, false, M.ProcessID)
+	processHandle, err := windows.OpenProcess(windows.PROCESS_ALL_ACCESS, false, M.ProcessID)
 	if err != nil {
 		return fmt.Errorf("Failed to open process: %v", err)
 	}
-	defer win32.CloseHandle(processHandle)
+	defer windows.CloseHandle(processHandle)
 	
 	var bytesWritten uint32
-	if err := win32.WriteProcessMemory(processHandle, address, uintptr(unsafe.Pointer(&data[0])), uint32(len(data)), &bytesWritten); err != nil {
+	if err := windows.WriteProcessMemory(processHandle, address, uintptr(unsafe.Pointer(&data[0])), uint32(len(data)), &bytesWritten); err != nil {
 		return fmt.Errorf("Failed to write memory: %v", err)
 	}
 

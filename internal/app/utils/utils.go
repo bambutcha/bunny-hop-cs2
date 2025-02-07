@@ -1,10 +1,8 @@
 // To future
 package utils
 
-import (
-	"github.com/0xrawsec/golang-win32/win32"
-)
+import "golang.org/x/sys/windows"
 
 func SetConsoleTittle(title string) {
-	win32.SetConsoleTittle(title)
+	windows.SetConsoleTittle(title)
 }
