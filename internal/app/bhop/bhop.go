@@ -8,11 +8,39 @@ import (
 	"strings"
 	"time"
 	"unsafe"
+	"syscall"
 
 	"github.com/bambutcha/cs2-bhop/internal/app/logger"
 	"github.com/bambutcha/cs2-bhop/internal/app/memory"
 	"golang.org/x/sys/windows"
 )
+
+const (
+	VK_SPACE = 0x20
+	MAX_MODULE_NAME32 = 255
+	MAX_PATH = 260
+)
+
+var (
+	user32 = windows.NewLazySystemDLL("user32.dll")
+	kernel32 = windows.NewLazySystemDLL("kernel32.dll")
+	getAsyncKeyState = user32.NewProc("GetAsyncKeyState")
+	module32First = kernel32.NewProc("Module32FirstW")
+	module32Next = kernel32.NewProc("Module32NextW")
+)
+
+type MODULEENTRY32 struct {
+	Size         uint32
+	ModuleID     uint32
+	ProcessID    uint32
+	GlblcntUsage uint32
+	ProccntUsage uint32
+	ModBaseAddr  *uint8
+	ModBaseSize  uint32
+	HModule      windows.Handle
+	SzModule     [MAX_MODULE_NAME32 + 1]uint16
+	SzExePath    [MAX_PATH]uint16
+}
 
 type Bhop struct {
 	Version 		 string
@@ -92,18 +120,21 @@ func (b *Bhop) GetModuleBaseAddress(moduleName string) (uintptr, error) {
 	}
 	defer windows.CloseHandle(snapshot)
 
-	var entry windows.MODULEENTRY32
+	var entry MODULEENTRY32
 	entry.Size = uint32(unsafe.Sizeof(entry))
 
-	if err := windows.Module32First(snapshot, &entry); err != nil {
-		return 0, err
+	ret, _, err := module32First.Call(uintptr(snapshot), uintptr(unsafe.Pointer(&entry)))
+	if ret == 0 {
+		return 0, fmt.Errorf("Module32First failed: %v", err)
 	}
 
 	for {
 		if strings.EqualFold(windows.UTF16ToString(entry.SzModule[:]), moduleName) {
-			return uintptr(entry.ModBaseAddr), nil
+			return uintptr(unsafe.Pointer(entry.ModBaseAddr)), nil
 		}
-		if err := windows.Module32Next(snapshot, &entry); err != nil {
+		
+		ret, _, err := module32Next.Call(uintptr(snapshot), uintptr(unsafe.Pointer(&entry)))
+		if ret == 0 {
 			break
 		}
 	}
@@ -151,7 +182,8 @@ func (b *Bhop) Start() {
 
 	b.Logger.Info("Bunnyhop started. Hold SPACE to hopping.")
 	for {
-		if windows.GetAsyncKeyState(windows.VK_SPACE) & 0x8000 != 0 {
+		ret, _, _ := getAsyncKeyState.Call(uintptr(VK_SPACE))
+		if ret&0x8000 != 0 {
 			b.Jump()
 		}
 		time.Sleep(10 * time.Millisecond)
