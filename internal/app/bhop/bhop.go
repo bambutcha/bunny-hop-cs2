@@ -74,7 +74,7 @@ func (b *Bhop) FindProcessID(processName string) (uint32, error) {
 	}
 
 	for {
-		if windows.UTF16ToString(entry.ExeFile[:]), processName) {
+		if strings.EqualFold(windows.UTF16ToString(entry.ExeFile[:]), processName) {
 			return entry.ProcessID, nil
 		}
 		if err := windows.Process32Next(snapshot, &entry); err != nil {
@@ -151,7 +151,7 @@ func (b *Bhop) Start() {
 
 	b.Logger.Info("Bunnyhop started. Hold SPACE to hopping.")
 	for {
-		if win32.GetAsyncKeyState(win32.VK_SPACE) & 0x8000 != 0 {
+		if windows.GetAsyncKeyState(windows.VK_SPACE) & 0x8000 != 0 {
 			b.Jump()
 		}
 		time.Sleep(10 * time.Millisecond)
