@@ -14,7 +14,7 @@ type Config struct {
     
     // Клавиши
     JumpKey        int
-    ToggleKey      int // Клавиша для включения/выключения
+    ToggleKey      int
 }
 
 func NewDefaultConfig() *Config {
