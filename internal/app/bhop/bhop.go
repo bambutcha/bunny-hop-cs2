@@ -7,35 +7,35 @@ import (
     "io/ioutil"
     "net/http"
     "strconv"
+    "sync/atomic"
     "unsafe"
 
+    "github.com/bambutcha/cs2-bhop/internal/app/config"
     "github.com/bambutcha/cs2-bhop/internal/app/logger"
     "github.com/bambutcha/cs2-bhop/internal/app/memory"
     "golang.org/x/sys/windows"
 )
 
-const (
-    VK_SPACE = 0x20
-)
-
 var (
-    user32 = windows.NewLazySystemDLL("user32.dll")
+    user32          = windows.NewLazySystemDLL("user32.dll")
     getAsyncKeyState = user32.NewProc("GetAsyncKeyState")
 )
 
 type Bhop struct {
-    Version          string
-    ProcessID        uint32
-    ClientBase       uintptr
-    ForceJumpAddress uintptr
-    Logger           *logger.Logger
-    MemoryReader     *memory.MemoryReader
+    config          *config.Config
+    logger          *logger.Logger
+    memoryReader    *memory.MemoryReader
+    processID       uint32
+    clientBase      uintptr
+    forceJumpAddress uintptr
+    isEnabled       atomic.Bool
+    isRunning       atomic.Bool
 }
 
 func NewBhop(logger *logger.Logger) *Bhop {
     return &Bhop{
-        Version: "1.0.0",
-        Logger:  logger,
+        config: config.NewDefaultConfig(),
+        logger: logger,
     }
 }
 
@@ -67,7 +67,7 @@ func (b *Bhop) FindProcessID(processName string) (uint32, error) {
 }
 
 func (b *Bhop) GetModuleBaseAddress(moduleName string) (uintptr, error) {
-    snapshot, err := windows.CreateToolhelp32Snapshot(windows.TH32CS_SNAPMODULE|windows.TH32CS_SNAPMODULE32, b.ProcessID)
+    snapshot, err := windows.CreateToolhelp32Snapshot(windows.TH32CS_SNAPMODULE|windows.TH32CS_SNAPMODULE32, b.processID)
     if err != nil {
         return 0, err
     }
@@ -94,7 +94,7 @@ func (b *Bhop) GetModuleBaseAddress(moduleName string) (uintptr, error) {
 }
 
 func (b *Bhop) FetchOffsets() (uintptr, error) {
-    response, err := http.Get("https://raw.githubusercontent.com/a2x/cs2-dumper/main/output/buttons.hpp")
+    response, err := http.Get(b.config.OffsetsURL)
     if err != nil {
         return 0, err
     }
@@ -124,67 +124,98 @@ func (b *Bhop) FetchOffsets() (uintptr, error) {
 }
 
 func (b *Bhop) Initialize() error {
-    b.Logger.Info("Searching for cs2.exe process...")
-    pid, err := b.FindProcessID("cs2.exe")
+    b.logger.Info("Searching for cs2.exe process...")
+    pid, err := b.FindProcessID(b.config.ProcessName)
     if err != nil {
         return fmt.Errorf("failed to find cs2.exe process: %v", err)
     }
-    b.ProcessID = pid
+    b.processID = pid
 
     memReader, err := memory.NewMemoryReader(pid)
     if err != nil {
         return fmt.Errorf("failed to create memory reader: %v", err)
     }
-    b.MemoryReader = memReader
+    b.memoryReader = memReader
 
-    b.Logger.Info("Getting client.dll base address...")
-    clientBase, err := b.GetModuleBaseAddress("client.dll")
+    b.logger.Info("Getting client.dll base address...")
+    clientBase, err := b.GetModuleBaseAddress(b.config.ModuleName)
     if err != nil {
         return fmt.Errorf("failed to get client.dll base address: %v", err)
     }
-    b.ClientBase = clientBase
+    b.clientBase = clientBase
 
-    b.Logger.Info("Fetching offsets...")
+    b.logger.Info("Fetching offsets...")
     offset, err := b.FetchOffsets()
     if err != nil {
         return fmt.Errorf("failed to fetch offsets: %v", err)
     }
 
-    b.ForceJumpAddress = b.ClientBase + offset
-    b.Logger.Info(fmt.Sprintf("Client base: 0x%X, Offset: 0x%X, Final address: 0x%X",
-        b.ClientBase, offset, b.ForceJumpAddress))
+    b.forceJumpAddress = b.clientBase + offset
+    b.logger.Info(fmt.Sprintf("Client base: 0x%X, Offset: 0x%X, Final address: 0x%X",
+        b.clientBase, offset, b.forceJumpAddress))
 
     return nil
 }
 
+func (b *Bhop) handleToggle() {
+    ret, _, _ := getAsyncKeyState.Call(uintptr(b.config.ToggleKey))
+    if ret&0x1 != 0 { // Клавиша только что нажата
+        if b.isEnabled.Load() {
+            b.isEnabled.Store(false)
+            b.logger.Info("Bhop disabled")
+        } else {
+            b.isEnabled.Store(true)
+            b.logger.Info("Bhop enabled")
+        }
+    }
+}
+
 func (b *Bhop) Start() {
     if err := b.Initialize(); err != nil {
-        b.Logger.Error(err.Error())
+        b.logger.Error(err.Error())
         return
     }
 
-    b.Logger.Info("Bunnyhop started. Hold SPACE to hopping.")
+    b.logger.Info(fmt.Sprintf("Bhop %s started. Press INSERT to toggle, SPACE to hop.", b.config.Version))
+    b.isRunning.Store(true)
+    b.isEnabled.Store(true)
     
     jump := false
-    for {
-        ret, _, _ := getAsyncKeyState.Call(uintptr(VK_SPACE))
+    lastJumpTime := time.Now()
+
+    for b.isRunning.Load() {
+        b.handleToggle()
+
+        if !b.isEnabled.Load() {
+            time.Sleep(time.Duration(b.config.JumpDelay) * time.Millisecond)
+            continue
+        }
+
+        ret, _, _ := getAsyncKeyState.Call(uintptr(b.config.JumpKey))
         if ret&0x8000 != 0 { // Space is pressed
-            if !jump {
-                time.Sleep(10 * time.Millisecond)
-                if err := b.MemoryReader.WriteInt(b.ForceJumpAddress, 65537); err != nil {
-                    b.Logger.Error(fmt.Sprintf("Failed to write memory: %v", err))
+            if !jump && time.Since(lastJumpTime) > 10*time.Millisecond {
+                if err := b.memoryReader.WriteInt(b.forceJumpAddress, b.config.PressValue); err != nil {
+                    b.logger.Error(fmt.Sprintf("Failed to write memory: %v", err))
                     continue
                 }
                 jump = true
-            } else {
-                time.Sleep(10 * time.Millisecond)
-                if err := b.MemoryReader.WriteInt(b.ForceJumpAddress, 256); err != nil {
-                    b.Logger.Error(fmt.Sprintf("Failed to write memory: %v", err))
+                lastJumpTime = time.Now()
+            } else if jump && time.Since(lastJumpTime) > 10*time.Millisecond {
+                if err := b.memoryReader.WriteInt(b.forceJumpAddress, b.config.ReleaseValue); err != nil {
+                    b.logger.Error(fmt.Sprintf("Failed to write memory: %v", err))
                     continue
                 }
                 jump = false
+                lastJumpTime = time.Now()
             }
         }
-        time.Sleep(1 * time.Millisecond)
+        time.Sleep(time.Duration(b.config.JumpDelay) * time.Millisecond)
+    }
+}
+
+func (b *Bhop) Stop() {
+    b.isRunning.Store(false)
+    if b.memoryReader != nil {
+        b.memoryReader.Close()
     }
 }
