@@ -11,7 +11,7 @@ func main() {
 	logger := logger.NewLogger()
 	bhop := bhop.NewBhop(logger)
 	bhop.Start()
-
+	
 	fmt.Println("\nНажмите Enter для выхода...")
 	fmt.Scanln()
 }

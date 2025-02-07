@@ -4,8 +4,7 @@ build:
 	go build -o bin/yaga-bhop ./cmd/main.go
 
 build-windows:
-	GOOS=windows GOARCH=amd64 go build -o bin/yaga-bhop.exe ./cmd/main.go
-	mt.exe -manifest cmd/admin.manifest -outputresource:bin/yaga-bhop.exe;#1
+    set GOOS=windows && set GOARCH=amd64 && go build -o bin/yaga-bhop.exe ./cmd/main.go
 
 clean:
 	rm -rf bin/
