@@ -176,7 +176,7 @@ func (b *Bhop) Start() {
 		return
 	}
 
-	b.logger.Info(fmt.Sprintf("Bhop %s started. Press INSERT to toggle, SPACE to hop.", b.config.Version))
+	b.logger.Info(fmt.Sprintf("Bhop v%s started. Press INSERT to toggle, SPACE to hop.", b.config.Version))
 	b.isRunning.Store(true)
 	b.isEnabled.Store(true)
 

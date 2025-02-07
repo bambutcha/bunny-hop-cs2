@@ -2,7 +2,7 @@ package config
 
 type Config struct {
     // Основные настройки
-    ProcessName     string
+    ProcessName    string
     ModuleName     string
     OffsetsURL     string
     Version        string
@@ -19,10 +19,10 @@ type Config struct {
 
 func NewDefaultConfig() *Config {
     return &Config{
-        ProcessName:   "cs2.exe",
+        ProcessName:  "cs2.exe",
         ModuleName:   "client.dll",
         OffsetsURL:   "https://raw.githubusercontent.com/a2x/cs2-dumper/main/output/buttons.hpp",
-        Version:      "1.1.0",
+        Version:      "1.1.1",
         JumpDelay:    1,
         PressValue:   65537,
         ReleaseValue: 256,
