@@ -8,7 +8,6 @@ import (
 	"strings"
 	"time"
 	"unsafe"
-	"syscall"
 
 	"github.com/bambutcha/cs2-bhop/internal/app/logger"
 	"github.com/bambutcha/cs2-bhop/internal/app/memory"
@@ -123,9 +122,9 @@ func (b *Bhop) GetModuleBaseAddress(moduleName string) (uintptr, error) {
 	var entry MODULEENTRY32
 	entry.Size = uint32(unsafe.Sizeof(entry))
 
-	ret, _, err := module32First.Call(uintptr(snapshot), uintptr(unsafe.Pointer(&entry)))
+	ret, _, errFirst := module32First.Call(uintptr(snapshot), uintptr(unsafe.Pointer(&entry)))
 	if ret == 0 {
-		return 0, fmt.Errorf("Module32First failed: %v", err)
+		return 0, fmt.Errorf("Module32First failed: %v", errFirst)
 	}
 
 	for {
@@ -133,7 +132,7 @@ func (b *Bhop) GetModuleBaseAddress(moduleName string) (uintptr, error) {
 			return uintptr(unsafe.Pointer(entry.ModBaseAddr)), nil
 		}
 		
-		ret, _, err := module32Next.Call(uintptr(snapshot), uintptr(unsafe.Pointer(&entry)))
+		ret, _, _ = module32Next.Call(uintptr(snapshot), uintptr(unsafe.Pointer(&entry)))
 		if ret == 0 {
 			break
 		}
