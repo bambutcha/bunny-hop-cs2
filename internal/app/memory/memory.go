@@ -7,6 +7,10 @@ import (
 	"golang.org/x/sys/windows"
 )
 
+const (
+	PROCESS_ALL_ACCESS = 0x1F0FFF
+)
+
 type MemoryReader struct {
 	ProcessID uint32
 }
@@ -18,7 +22,7 @@ func NewMemoryReader(processID uint32) *MemoryReader {
 }
 
 func (M *MemoryReader) ReadMemory(address uint32, size uint32) ([]byte, error) {
-	processHandle, err := windows.OpenProcess(windows.PROCESS_ALL_ACCESS, false, M.ProcessID)
+	processHandle, err := windows.OpenProcess(PROCESS_ALL_ACCESS, false, M.ProcessID)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to open process: %v", err)
 	}
@@ -39,7 +43,7 @@ func (M *MemoryReader) ReadMemory(address uint32, size uint32) ([]byte, error) {
 }
 
 func (M *MemoryReader) WriteMemory(address uint32, data []byte) error {
-	processHandle, err := windows.OpenProcess(windows.PROCESS_ALL_ACCESS, false, M.ProcessID)
+	processHandle, err := windows.OpenProcess(PROCESS_ALL_ACCESS, false, M.ProcessID)
 	if err != nil {
 		return fmt.Errorf("Failed to open process: %v", err)
 	}
