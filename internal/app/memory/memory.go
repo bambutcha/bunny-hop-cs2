@@ -32,3 +32,18 @@ func (M *MemoryReader) ReadMemory(address uint32, size uint32) ([]byte, error) {
 
 	return buffer, nil
 }
+
+func (M *MemoryReader) WriteMemory(address uint32, data []byte) error {
+	processHandle, err := win32.OpenProcess(win32.PROCESS_ALL_ACCESS, false, M.ProcessID)
+	if err != nil {
+		return fmt.Errorf("Failed to open process: %v", err)
+	}
+	defer win32.CloseHandle(processHandle)
+	
+	var bytesWritten uint32
+	if err := win32.WriteProcessMemory(processHandle, address, uintptr(unsafe.Pointer(&data[0])), uint32(len(data)), &bytesWritten); err != nil {
+		return fmt.Errorf("Failed to write memory: %v", err)
+	}
+
+	return nil
+}
