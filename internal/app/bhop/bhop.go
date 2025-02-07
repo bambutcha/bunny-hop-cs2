@@ -167,7 +167,8 @@ func (b *Bhop) Start() {
     
     jump := false
     for {
-        if getAsyncKeyState.Call(uintptr(VK_SPACE))&0x8000 != 0 {
+        ret, _, _ := getAsyncKeyState.Call(uintptr(VK_SPACE))
+        if ret&0x8000 != 0 {
             if !jump {
                 time.Sleep(10 * time.Millisecond)
                 if err := b.MemoryReader.WriteInt(b.ForceJumpAddress, 6); err != nil {
