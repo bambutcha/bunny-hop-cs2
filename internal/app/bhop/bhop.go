@@ -15,9 +15,9 @@ import (
 )
 
 const (
-	VK_SPACE = 0x20
+	VK_SPACE         = 0x20
 	MAX_MODULE_NAME32 = 255
-	MAX_PATH = 260
+	MAX_PATH         = 260
 )
 
 var (
@@ -42,18 +42,18 @@ type MODULEENTRY32 struct {
 }
 
 type Bhop struct {
-	Version 		 string
-	ProcessID 		 uint32
-	ClientBase 		 uintptr
+	Version          string
+	ProcessID        uint32
+	ClientBase       uintptr
 	ForceJumpAddress uintptr
-	Logger 			 *logger.Logger
-	MemoryReader 	 *memory.MemoryReader
+	Logger           *logger.Logger
+	MemoryReader     *memory.MemoryReader
 }
 
 func NewBhop(logger *logger.Logger) *Bhop {
-	return &Bhop {
+	return &Bhop{
 		Version: "1.0.0",
-		Logger: logger,
+		Logger:  logger,
 	}
 }
 
@@ -82,7 +82,7 @@ func (b *Bhop) Initialize() error {
 	b.ForceJumpAddress = b.ClientBase + offset
 
 	b.Logger.Info("Bhop initialized successfully!")
-	
+
 	return nil
 }
 
@@ -131,14 +131,14 @@ func (b *Bhop) GetModuleBaseAddress(moduleName string) (uintptr, error) {
 		if strings.EqualFold(windows.UTF16ToString(entry.SzModule[:]), moduleName) {
 			return uintptr(unsafe.Pointer(entry.ModBaseAddr)), nil
 		}
-		
+
 		ret, _, _ = module32Next.Call(uintptr(snapshot), uintptr(unsafe.Pointer(&entry)))
 		if ret == 0 {
 			break
 		}
 	}
 
-	return 0, fmt.Errorf("Module not found")	
+	return 0, fmt.Errorf("Module not found")
 }
 
 func (b *Bhop) FetchOffsets() (uintptr, error) {
@@ -180,27 +180,29 @@ func (b *Bhop) Start() {
 	}
 
 	b.Logger.Info("Bunnyhop started. Hold SPACE to hopping.")
+	
+	jump := false
 	for {
 		ret, _, _ := getAsyncKeyState.Call(uintptr(VK_SPACE))
 		if ret&0x8000 != 0 {
-			b.Jump()
+			if !jump {
+				time.Sleep(10 * time.Millisecond)
+				value := int32(65537)
+				if err := b.MemoryReader.WriteMemory(uint32(b.ForceJumpAddress), (*[4]byte)(unsafe.Pointer(&value))[:]); err != nil {
+					b.Logger.Error(fmt.Sprintf("Failed to write memory: %v", err))
+					continue
+				}
+				jump = true
+			} else {
+				time.Sleep(10 * time.Millisecond)
+				value := int32(256)
+				if err := b.MemoryReader.WriteMemory(uint32(b.ForceJumpAddress), (*[4]byte)(unsafe.Pointer(&value))[:]); err != nil {
+					b.Logger.Error(fmt.Sprintf("Failed to write memory: %v", err))
+					continue
+				}
+				jump = false
+			}
 		}
-		time.Sleep(10 * time.Millisecond)
-	}
-}
-
-func (b *Bhop) Jump() {
-	value := int32(65537)
-	if err := b.MemoryReader.WriteMemory(uint32(b.ForceJumpAddress), (*[4]byte)(unsafe.Pointer(&value))[:]); err != nil {
-		b.Logger.Error(fmt.Sprintf("Failed to write memory: %v", err))
-		return
-	}
-
-	time.Sleep(10 * time.Millisecond)
-
-	value = 256
-	if err := b.MemoryReader.WriteMemory(uint32(b.ForceJumpAddress), (*[4]byte)(unsafe.Pointer(&value))[:]); err != nil {
-		b.Logger.Error(fmt.Sprintf("Failed to write memory: %v", err))
-		return
+		time.Sleep(1 * time.Millisecond)
 	}
 }
